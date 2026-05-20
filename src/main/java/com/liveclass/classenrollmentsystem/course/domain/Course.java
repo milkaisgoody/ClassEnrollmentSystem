@@ -68,4 +68,22 @@ public class Course {
             throw new IllegalArgumentException("해당 강의의 상태를 변경할 권한이 없습니다.");
         }
     }
+
+    //수강 인원 증감 비즈니스 로직
+    public boolean isFull() {
+        return this.currentEnrollment >= this.capacity;
+    }
+
+    public void addEnrollment() {
+        if (isFull()) {
+            throw new IllegalStateException("정원이 초과되었습니다.");
+        }
+        this.currentEnrollment++;
+    }
+
+    public void removeEnrollment() {
+        if (this.currentEnrollment > 0) {
+            this.currentEnrollment--;
+        }
+    }
 }
