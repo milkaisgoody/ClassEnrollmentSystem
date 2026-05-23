@@ -167,6 +167,7 @@ erDiagram
         BIGINT id PK
         BIGINT creator_id "강의 생성자 ID"
         VARCHAR title "강의명"
+        VARCHAR description "강의 설명"
         INT price "강의 가격"
         INT capacity "최대 정원"
         INT current_enrollment "현재 수강 인원"
@@ -191,10 +192,13 @@ erDiagram
 | `id` | BIGINT | PK, AUTO_INCREMENT | 강의 고유 식별자 |
 | `creator_id` | BIGINT | NOT NULL | 강의를 개설한 크리에이터 식별자 |
 | `title` | VARCHAR | NOT NULL | 강의 제목 |
+| `description` | VARCHAR | NULLABLE | 강의 설명 |
 | `price` | INT | NOT NULL | 수강료 |
 | `capacity` | INT | NOT NULL | 수강 가능한 최대 정원 |
 | `current_enrollment`| INT | NOT NULL, DEFAULT 0 | 현재 수강 확정 및 대기 상태인 총 인원 |
-| `status` | VARCHAR | NOT NULL | 강의 상태 (`DRAFT`, `OPEN`) |
+| `start_date`| DATETIME | NOT NULL | 수강 시작일 |
+| `end_date`| DATETIME | NOT NULL | 수강 종료일 |
+| `status` | VARCHAR | NOT NULL | 강의 상태 (`DRAFT`, `OPEN`, `CLOSED`) |
 
 ### Enrollment (수강 신청 테이블)
 강의와 학생의 다대다 (N:M) 관계를 풀어내는 매핑 테이블이자, 대기열 및 결제 상태 전이 로직을 담당합니다. 
