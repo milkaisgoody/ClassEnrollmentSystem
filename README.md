@@ -63,7 +63,7 @@ gradlew bootRun 또는 ./gradlew bootRun
 
 ## 7. AI 활용 범위 
 본 프로젝트는 생산성 향상을 위해 AI와 협력하는 프로그래밍 방식으로 진행되었습니다.
-- 도움받은 부분 : JUnit 5 기반의 테스트 환경 설정, Postman 테스트 시나리오 기획, Test 코드 작성
+- 도움받은 부분 : JUnit 5 기반의 테스트 환경 설정, Postman 테스트 시나리오 기획, Test 코드 작성, API 명세서 검토
 
 <br>
 
@@ -71,14 +71,19 @@ gradlew bootRun 또는 ./gradlew bootRun
 모든 API는 사용자 인증이 완료되었다고 가정하며, HTTP Header 'X-User-Id'를 통해 식별자를 전달받습니다.
 
 ### 표정리
+
 | Domain | Method | URL | Description | Auth Header |
 |---|---|---|---|---|
 | **Course** | `POST` | `/api/courses` | 신규 강의 생성 | `X-User-Id: {creatorId}` |
 | | `PATCH` | `/api/courses/{id}/open` | 강의 모집 시작 | `X-User-Id: {creatorId}` |
+| | `PATCH` | `/api/courses/{id}/close` | 강의 모집 마감 | `X-User-Id: {creatorId}` |
+| | `GET` | `/api/courses?status={status}&page=0&size=10` | 강의 목록 조회 (상태 필터링 및 페이징 적용) | `X-User-Id: {userId}` |
+| | `GET` | `/api/courses/{id}` | 특정 강의 상세 정보 조회 | `X-User-Id: {userId}` |
+| | `GET` | `/api/courses/{id}/enrollments?page=0&size=10` | 강의별 수강생 목록 조회 (크리에이터 전용, 페이징 적용) | `X-User-Id: {creatorId}` |
 | **Enrollment** | `POST` | `/api/courses/{id}/enrollments` | 수강 신청 (정원 초과시 대기열) | `X-User-Id: {studentId}` |
 | | `PATCH` | `/api/enrollments/{id}/confirm` | 수강 결제 확정 | `X-User-Id: {studentId}` |
 | | `PATCH` | `/api/enrollments/{id}/cancel` | 수강 취소 (대기열 자동 승급) | `X-User-Id: {studentId}` |
-| | `GET` | `/api/enrollments/me` | 내 수강 신청 목록 조회 | `X-User-Id: {studentId}` |
+| | `GET` | `/api/enrollments/me?page=0&size=10` | 내 수강 신청 목록 조회 (페이징 적용) | `X-User-Id: {studentId}` |
 
 ### Course (강의 도메인)
 #### 1. 신규 강의 생성
@@ -102,29 +107,102 @@ gradlew bootRun 또는 ./gradlew bootRun
 - **Header:** `X-User-Id: {creatorId}`
 - **Description:** 강의 상태를 `DRAFT`에서 `OPEN`으로 변경하여 수강 신청을 받을 수 있도록 활성화합니다. 작성자 본인만 변경할 수 있습니다.
 
+#### 3. 강의 모집 마감 (상태 변경)
+- **Method & URL:** `PATCH /api/courses/{id}/close`
+- **Header:** `X-User-Id: {creatorId}`
+- **Description:** 강의 상태를 `OPEN`에서 `CLOSED`로 변경하여 더 이상 수강 신청(대기열 포함)을 받지 않도록 마감합니다. 작성자 본인만 변경할 수 있습니다.
+
+#### 4. 강의 목록 조회 (상태 필터링 및 페이지네이션)
+- **Method & URL:** `GET /api/courses?status=OPEN&page=0&size=10`
+- **Header:** `X-User-Id: {userId}`
+- **Description:** 전체 강의 목록을 페이징하여 조회합니다. `status` 쿼리 파라미터를 통해 특정 상태(예: OPEN)의 강의만 필터링할 수 있습니다.
+- **Response (Success - 200 OK):**
+```json
+ {
+  "content": [
+    {
+      "courseId": 11,
+      "title": "JPA 락을 활용한 수강신청 구현",
+      "price": 50000,
+      "capacity": 300,
+      "currentEnrollment": 150,
+      "status": "OPEN"
+    }
+  ],
+  "pageable": {
+    "pageNumber": 0,
+    "pageSize": 10
+  },
+  "totalElements": 1
+}
+```
+
+#### 5. 강의 상세 조회 
+- **Method & URL:** `GET /api/courses/{id}`
+- **Header:** `X-User-Id: {userId}`
+- **Description:** 특정 강의의 상세 정보를 조회합니다. 현재 수강 인원 및 잔여 정원을 확인할 수 있습니다.
+- **Response (Success - 200 OK):**
+```json
+{
+  "courseId": 11,
+  "creatorId": 1,
+  "title": "JPA 락을 활용한 수강신청 구현",
+  "description": "백엔드 동시성 제어 실무",
+  "price": 50000,
+  "capacity": 300,
+  "currentEnrollment": 150,
+  "status": "OPEN",
+  "startDate": "2026-06-01",
+  "endDate": "2026-06-30"
+}
+```
+
+#### 6. 강의별 수강생 목록 조회 (크리에이터 전용, 페이지네이션) 
+- **Method & URL:** `GET /api/courses/{id}/enrollments?page=0&size=10`
+- **Header:** `X-User-Id: {creatorId}`
+- **Description:** 특정 강의에 수강 신청한 학생들의 목록과 현재 상태를 페이징하여 조회합니다. 해당 강의를 개설한 크리에이터 본인만 조회할 수 있습니다.
+- **Response (Success - 200 OK):**
+```json
+{
+  "content": [
+    {
+      "enrollmentId": 2,
+      "studentId": 102,
+      "status": "CONFIRMED",
+      "createdAt": "2026-05-21T18:27:45.000"
+    }
+  ],
+  "pageable": {
+    "pageNumber": 0,
+    "pageSize": 10
+  },
+  "totalElements": 150
+}
+```
+
 <br>
 
 ### Enrollment (수강신청 도메인)
-#### 3. 수강 신청 (선착순 및 대기열)
+#### 7. 수강 신청 (선착순 및 대기열)
 - **Method & URL:** `POST /api/courses/{id}/enrollments`
 - **Header:** `X-User-Id: {studentId}` (예: `X-User-Id: 102`)
 - **Description:** 특정 강의에 수강 신청을 합니다. 정원이 남아있으면 `PENDING(결제대기)`, 초과되었으면 자동으로 `WAITLISTED(대기열)` 상태로 저장됩니다.
-- Response (Success - 200 OK): 수강 신청 고유 ID 반환
+- **Response (Success - 200 OK):** 수강 신청 고유 ID 반환
 ```json
 15
 ```
 
-#### 4. 수강 결제 확정
+#### 8. 수강 결제 확정
 - **Method & URL:** `PATCH /api/enrollments/{id}/confirm`
 - **Header:** `X-User-Id: {studentId}`
 - **Description:** `PENDING` 상태인 수강 내역의 결제를 확정하여 `CONFIRMED` 상태로 변경하고 결제 일시(paymentDate)를 기록합니다.
 
-#### 5. 수강 취소 및 대기자 승급
+#### 9. 수강 취소 및 대기자 승급
 - **Method & URL:** `PATCH /api/enrollments/{id}/cancel`
 - **Header:** `X-User-Id: {studentId}`
 - **Description:** 수강을 취소(`CANCELLED`)합니다. 결제 확정일로부터 7일이 지난 경우 취소가 제한됩니다. 정원 내 인원이 취소한 경우, 대기열(`WAITLISTED`)의 가장 앞선 1명이 `PENDING`으로 자동 승급됩니다.
 
-#### 6. 내 수강 신청 목록 조회(페이지네이션 적용)
+#### 10. 내 수강 신청 목록 조회(페이지네이션 적용)
 - **Method & URL:** `GET /api/enrollments/me?page=0&size=10`
 - **Header:** `X-User-Id: {studentId}`
 - **Description:** 로그인한 사용자의 전체 수강 신청 내역을 페이징 처리하여 최신순으로 조회합니다.
@@ -171,9 +249,9 @@ erDiagram
         INT price "강의 가격"
         INT capacity "최대 정원"
         INT current_enrollment "현재 수강 인원"
-        VARCHAR status "상태 (DRAFT, OPEN)"
-        DATE start_date
-        DATE end_date
+        VARCHAR status "상태 (DRAFT, OPEN, CLOSED)"
+        DATE start_date "수강 시작일"
+        DATE end_date "수강 종료일"
     }
     ENROLLMENT {
         BIGINT id PK
